@@ -5,6 +5,8 @@ CONFIG.py
 node_modules
 static/js/*.min.js
 .goog_app_key.json
+database_exists
+Makefile.local
 *~
 
 

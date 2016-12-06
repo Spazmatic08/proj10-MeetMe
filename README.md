@@ -1,15 +1,20 @@
-# proj8-free
-Snarf appointment data from a selection of a user's Google calendars 
+# proj10-MeetMe
+Snarf appointment data from a selection of a user's Google calendars, and 
+permit that user to set up events and invite others to it.
 
 ## User
 The application is fairly simple - provided the necessary secrets to
 access a user's Google calendars, the site returns times when that user
 is busy or available based on the dates, times, and selected calendars 
-provided by the client.
+provided by the client. The client may also select one of these available
+time windows and set up a new event, and will be provided a link to share
+with others that will invite them as well.
 
 ## Running the program
 After forking and cloning the repository, you should be able to run 
 the program with the following commands:
+* git clone
+* cd repo/directory/path
 * bash ./configure
 * make run
 Alternatively, you should be able to deploy through gunicorn by using 

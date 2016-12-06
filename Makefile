@@ -49,8 +49,22 @@ INVENV = . env/bin/activate ;
 # 'make run' runs Flask's built-in test server, 
 #  with debugging turned on unless it is unset in CONFIG.py
 # 
-run:	env
+run:	env  database_exists
 	($(INVENV) python3 flask_main.py) ||  true
+
+# 'make database_exists' checks if the database has been created, and
+# creates it if not. It's run every time 'make run' is.
+#
+database_exists:
+	($(INVENV) python3 create_db.py) || true
+	touch database_exists
+
+# 'make destroy_database' drops the database. It's also called when
+# 'make veryclean' is.
+#
+destroy_database:
+	($(INVENV) python3 destroy_db.py) || true
+	rm database_exists
 
 # 'make service' runs as a background job under the gunicorn 
 #  WSGI server. FIXME:  A real production service would use 
@@ -92,6 +106,7 @@ clean:
 
 veryclean:
 	make clean
+	make destroy_database
 	rm -f CONFIG.py
 	rm -rf env
 	rm -f Makefile.local
