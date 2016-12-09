@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html lang="en"> <head>
+<title>Appointments</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" type="text/css"
+     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"
+/>
+
+
+<link rel="stylesheet" type="text/css"
+    href="/static/css/busy.css"
+/>
+
+<!-- jquery from a content distribution network; probably cached -->
+<script type="text/javascript"
+     src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
+</script>
+</head>
+
+<body>
+<div class="container">
+
+<h1>Invitation</h1>
+<br />
+<h3>{{ g.event['summary'] }}</h3>
+<h4>{{ g.event['start']['dateTime'] | fmtdate }}</h4>
+<strong>{{ g.event['start']['dateTime'] | fmttime }} to 
+    {{ g.event['end']['dateTime'] | fmttime }}</strong>
+<br />
+<br />
+
+<p>{{ g.event['description'] }}</p>
+
+<br />
+
+<form action="../rsvp" method="POST">
+<div class="col-md-4">
+  {% for cal in g.calendars if cal.selected %}
+          <div class="row">
+	    <label>
+	      <input type="radio" 
+	      name="calselect" 
+	      value="{{ cal.id }}"
+	      checked="True">
+	      {{ cal.summary }}
+	    </label>
+          </div>
+         {% if loop.index is divisibleby 3 %}
+          </div> <div class="col-md-4">
+         {% endif %}
+  {% endfor %}
+</div>
+
+<div style="clear: left">
+  <input type="submit" name="choice" value="Accept" 
+    style="width: 5em"></input>
+  <input type="submit" name="choice" value="Decline"
+    style="width: 5em"></input>
+</div>
+
+</form>
+
+</div>  <!-- container (for bootstrap) -->
+</body> </html>

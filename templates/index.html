@@ -58,6 +58,13 @@
   {% endif %}
 {% endwith %}
 
+{% if session['meeting_url'] is defined %}
+  <p>
+    The link for your generated meeting is this: {{ session['meeting_url'] }}
+  </p>
+  <a href="{{ session['meeting_url'] }}"></a>
+{% endif %}
+
 {% if session['busy'] is defined %}
   {% if session['busy'][0] is defined %}
      <p>Found busy times:</p>

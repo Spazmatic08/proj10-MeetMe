@@ -21,6 +21,29 @@ import httplib2   # used in oauth2 flow
 # Google API for services 
 from apiclient import discovery
 
+# Mongo database
+from pymongo import MongoClient
+import secrets.admin_secrets
+import secrets.client_secrets
+MONGO_CLIENT_URL = "mongodb://{}:{}@localhost:{}/{}".format(
+    secrets.client_secrets.db_user,
+    secrets.client_secrets.db_user_pw,
+    secrets.admin_secrets.port, 
+    secrets.client_secrets.db)
+
+####
+# Database connection per server process
+###
+
+try: 
+    dbclient = MongoClient(MONGO_CLIENT_URL)
+    db = getattr(dbclient, secrets.client_secrets.db)
+    collection = db.schedule
+
+except:
+    print("Failure opening database.  Is Mongo running? Correct password?")
+    sys.exit(1)
+
 ###
 # Globals
 ###
@@ -103,6 +126,9 @@ def _invite():
               'end': { 'dateTime': event_arrows[1].isoformat() },
               'description': entry['description'],
               'summary': entry['eventName'] }
+    db_id = arrow.utcnow().timestamp
+
+    db_entry = { '_id': db_id, 'event': event }
 
     # Acquire the GCal service
     app.logger.debug("Checking credentials for Google calendar access")
@@ -113,15 +139,70 @@ def _invite():
     
     gcal_service = get_gcal_service(credentials)
 
-    db_entry = { 'event': event }
-
     # We need to add the event to the creator's calendar
     event = gcal_service.events().insert(
         calendarId=entry['calselect'],
         body=event).execute()
+
+    collection.insert(db_entry)
+
+    # Generate a link to the created event
+    link_url = flask.url_for('_respond', event_id=db_id, _external=True)
+    flask.session['meeting_url'] = link_url
     
-    print(db_entry)
     return flask.redirect(flask.url_for('choose'))
+
+@app.route("/_respond/<event_id>")
+def _respond(event_id):
+    # Acquire the event details from the database
+    event = collection.find_one({ '_id': int(event_id) })['event']
+
+    # Acquire the GCal service (again)
+    app.logger.debug("Checking credentials for Google calendar access")
+    credentials = valid_credentials()
+    if not credentials:
+      app.logger.debug("Redirecting to authorization")
+      return flask.redirect(flask.url_for('oauth2callback'))
+
+    gcal_service = get_gcal_service(credentials)
+
+    # Set things we will need up
+    flask.g.calendars = list_calendars(gcal_service)
+    flask.g.event = event
+    flask.session['event_id'] = event_id
+    
+    return flask.render_template('respond.html')
+
+
+@app.route("/rsvp", methods=["POST"])
+def rsvp():
+    if request.form['choice'] == 'Decline':
+        return flask.redirect(url_for('choose'))
+    
+    calselect = request.form['calselect']
+    app.logger.debug("Snsjvdklnjsklnvjskdlfhjvklsfdnjvklsndjkfl")
+    app.logger.debug("{}".format(calselect))
+    
+    # Acquire the GCal service (again)
+    app.logger.debug("Checking credentials for Google calendar access")
+    credentials = valid_credentials()
+    if not credentials:
+      app.logger.debug("Redirecting to authorization")
+      return flask.redirect(flask.url_for('oauth2callback'))
+    
+    gcal_service = get_gcal_service(credentials)
+
+    # Find the event details in the database
+    event = collection.find_one({ '_id':
+                                  int(flask.session['event_id']) })['event']
+
+    # Place the event onto the user's calendar
+    event = gcal_service.events().insert(
+        calendarId=calselect,
+        body=event).execute()
+
+    return flask.redirect(url_for('choose'))
+
 
 ####
 #
@@ -407,8 +488,6 @@ def break_day(dayrange, interrupts):
                           'end': scrutiny['end']}]
             del result[-1]
             result.extend(new_parts)
-
-        print("Result so far: {}".format(result))
         
     return result
 
