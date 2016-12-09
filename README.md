@@ -24,6 +24,13 @@ The server runs on port 5000 under most circumstances (if deploying on the UO's
 ix server, it tries to run on port 7520). You will need to provide the necessary
 secrets files yourself - it uses oauth2 and the Google calendars API. 
 
+## VENV and Testing
+The development environment can be activated with the command line prompt 
+'source env/bin/activate'. You will need to have at least configured the 
+server and run it at least once to initialize everything and ensure
+consistency. While the environment is active, you can run the automated 
+test suite with the command 'nosetests'.
+
 ## FIXME
 * The server currently relies on its own local timezone when it should be
 drawn from the client.
@@ -35,6 +42,7 @@ is in place, but it needs to be corrected once arrow has been patched. See the
 flask_main.py interpret_time() function for more detail.
 
 ## Contact Details
+This was primarily coded by Alexander Dibb. 
 If you need to reach me, you can do so through my email at adibb@cs.uoregon.edu .
 Alternatively, the skeleton code was produced by the UO at time of writing. 
 If you have questions regarding the core parts of the code, you could 
