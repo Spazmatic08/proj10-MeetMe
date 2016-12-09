@@ -33,7 +33,7 @@ app.debug=CONFIG.DEBUG
 app.logger.setLevel(logging.DEBUG)
 app.secret_key=CONFIG.secret_key
 
-SCOPES = 'https://www.googleapis.com/auth/calendar.readonly'
+SCOPES = 'https://www.googleapis.com/auth/calendar'
 CLIENT_SECRET_FILE = secrets.admin_secrets.google_key_file
 APPLICATION_NAME = 'MeetMe class project'
 
@@ -66,6 +66,62 @@ def choose():
     if 'cal_ids' in flask.session:
       set_freebusy(gcal_service)
     return render_template('index.html')
+
+@app.route("/create_event")
+def create_event():
+    ## Bring the user to the event creation page
+    app.logger.debug("Entering event creation")
+    flask.session['target_date'] = request.args.get('date')
+    flask.session['time_min'] = request.args.get('start')
+    flask.session['time_max'] = request.args.get('end')
+
+    app.logger.debug("Checking credentials for Google calendar access")
+    credentials = valid_credentials()
+    if not credentials:
+      app.logger.debug("Redirecting to authorization")
+      return flask.redirect(flask.url_for('oauth2callback'))
+
+    gcal_service = get_gcal_service(credentials)
+    app.logger.debug("Returned from get_gcal_service")
+    flask.g.calendars = list_calendars(gcal_service)
+    
+    return render_template('create_event.html')
+
+@app.route("/_invite", methods = ['POST'])
+def _invite():
+    ## Insert the newly created event into the database, create and
+    ## display the invitation link.
+    app.logger.debug("Entering invitation generation")
+    entry = request.form
+
+    date = arrow.get(entry['date'].split(' ')[1], 'MM/DD/YYYY')
+    start = entry['tpBegin']
+    end = entry['tpEnd']
+
+    event_arrows = single_day(date, start, end)
+    event = { 'start': { 'dateTime': event_arrows[0].isoformat() },
+              'end': { 'dateTime': event_arrows[1].isoformat() },
+              'description': entry['description'],
+              'summary': entry['eventName'] }
+
+    # Acquire the GCal service
+    app.logger.debug("Checking credentials for Google calendar access")
+    credentials = valid_credentials()
+    if not credentials:
+      app.logger.debug("Redirecting to authorization")
+      return flask.redirect(flask.url_for('oauth2callback'))
+    
+    gcal_service = get_gcal_service(credentials)
+
+    db_entry = { 'event': event }
+
+    # We need to add the event to the creator's calendar
+    event = gcal_service.events().insert(
+        calendarId=entry['calselect'],
+        body=event).execute()
+    
+    print(db_entry)
+    return flask.redirect(flask.url_for('choose'))
 
 ####
 #
@@ -310,7 +366,6 @@ def set_freebusy(service):
       busy.extend(busy_that_day)
       dearrowed_times = [{'start': times[0].format("YYYY-MM-DDTHH:mm:ssZ"), 
                          'end': times[1].format("YYYY-MM-DDTHH:mm:ssZ")}]
-      flask.flash(busy_that_day)
       avbl.extend(break_day(dearrowed_times, busy_that_day))
 
     flask.session['busy'] = busy
@@ -368,22 +423,31 @@ def daily_ranges():
     end_date = arrow.get(flask.session['end_date'])
     begin_time = flask.session['begin_time']
     end_time = flask.session['end_time']
-    # Hour and minute offsets in [0] and [1], respectively
+    result = [ ]
+    for date in arrow.Arrow.range('day', begin_date, end_date):
+      result.append(single_day(date, begin_time, end_time))
+    return result
+
+def single_day(date, begin_time, end_time):
+    """
+    Acquires a pair of arrows from the timepickers representing a single
+    start and end time
+    """
     begin_offset = [int(n) for n in
                     begin_time.split(":")]
     end_offset = [int(n) for n in
                   end_time.split(":")]
-    result = [ ]
-    for date in arrow.Arrow.range('day', begin_date, end_date):
-      day_start = date.replace(hours=+begin_offset[0],
-                               minutes=+begin_offset[1],
-                               tzinfo=tz.tzlocal())
-      day_end = date.replace(hours=+end_offset[0],
-                             minutes=+end_offset[1],
-                             tzinfo=tz.tzlocal())
-      result.append([day_start, day_end])
-    return result
-  
+
+    day = arrow.get(date)
+
+    day_start = day.replace(hours=+begin_offset[0],
+                            minutes=+begin_offset[1],
+                            tzinfo=tz.tzlocal())
+    day_end = day.replace(hours=+end_offset[0],
+                          minutes=+end_offset[1],
+                          tzinfo=tz.tzlocal())
+    return [day_start, day_end]
+
 def list_calendars(service):
     """
     Given a google 'service' object, return a list of

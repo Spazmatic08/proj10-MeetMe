@@ -74,13 +74,20 @@
 
 {% if session['avbl'] is defined %}
   {% if session['avbl'][0] is defined %}
-     <p>Found available times:</p>
-     <ul>
-     {% for avbl in session['avbl'] %}
-       <li>{{ avbl['start'] | fmtdate }}, {{ avbl['start'] | fmttime }} to 
-       {{ avbl['end'] | fmttime }}</li>
-     {% endfor %}
-     </ul>
+    <p>Found available times:</p>
+    <ul>
+    {% for avbl in session['avbl'] %}
+      <li>
+	<a href="create_event?
+		date={{ avbl['start'] | fmtdate }}&
+		start={{ avbl['start'] | fmttime }}&
+		end={{ avbl['end'] | fmttime }}">
+	{{ avbl['start'] | fmtdate }}, {{ avbl['start'] | fmttime }} to 
+	{{ avbl['end'] | fmttime }}
+	</a>
+      </li>
+    {% endfor %}
+    </ul>
   {% endif %}
 {% endif %}
 

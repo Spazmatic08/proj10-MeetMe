@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html lang="en"> <head>
+<title>Create Event</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" type="text/css"
+     href="//cdn.jsdelivr.net/bootstrap/latest/css/bootstrap.css"
+/>
+
+<link rel="stylesheet" type="text/css"
+    href="/static/css/busy.css"
+/>
+
+<!-- jquery from a content distribution network; probably cached -->
+<script type="text/javascript"
+     src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js">
+</script>
+
+<!-- Ideally the rest of our javascript dependencies would be
+     bundled and minified with 'browserify', but I've found that
+     it difficult to handle browserify dependencies for class
+     projects.  So, we'll pick up moment and a date range picker
+     from CDNs instead.
+-->
+
+<script type="text/javascript" src="//cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
+
+<!-- NoGray time picker -->
+<script type="text/javascript" src="//www.nogray.com/templates/nogray/js/ng/1.2.2/ng_lite.js"></script>
+<script type="text/javascript" src="//www.nogray.com/templates/nogray/js/ng/1.2.2/components/timepicker_lite.js"></script>
+<script type="text/javascript" src="//www.nogray.com/templates/nogray/js/ng/1.2.2/ng_ui.js"></script>
+<link rel="stylesheet" type="text/css" href="//www.nogray.com/templates/nogray/css/all.css" />
+
+</head>
+<body>
+<div class="container">
+
+<h1>Create Event</h1>
+
+<!--
+  -- If there are any warnings or other messages from a prior action,
+  -- they appear above the rest of the content, just until the next 
+  -- action.
+  -->
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class=flashes>
+    {% for message in messages %}
+      <li style="color: red">NOTE: {{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+<h2>{{ session.target_date }}</h2>
+
+<form action="/_invite" method="POST">
+
+  <!-- Hidden input field for date -->
+  <input type="hidden" name="date" value="{{ session.target_date }}"></input>
+
+  <h3>
+    Event Name: <input type="text" name="eventName" required></input>
+  </h3>
+
+  {% if g.calendars is defined  %}
+  <div class="col-md-4">
+    {% for cal in g.calendars if cal.selected %}
+          <div class="row">
+	    <label>
+	      <input type="radio" 
+	      name="calselect" 
+	      value="{{ cal.id }}"
+	      checked="True">
+	      {{ cal.summary }}
+	    </label>
+          </div>
+         {% if loop.index is divisibleby 3 %}
+          </div> <div class="col-md-4">
+         {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  <p style="clear: left">
+    From <input type="text" name="tpBegin" id="tpBegin"> 
+    to <input type="text" name="tpEnd" id="tpEnd">
+  </p>
+
+  <script type="text/javascript">
+  ng.ready(function(){
+      var tpB = new ng.TimePicker({
+  	input: 'tpBegin', 
+	format: 'h:i A',
+	start: '{{ session.time_min }}',
+	end: '{{ session.time_max }}',
+	server_format: 'H:i',
+	value: '{{ session.time_min }}'
+    });
+    var tpE = new ng.TimePicker({
+	input: 'tpEnd', 
+	format: 'h:i A',
+	start: '{{ session.time_min }}',
+	end: '{{ session.time_max }}',
+	server_format: 'H:i',
+	value: '{{ session.time_max }}'
+    });
+  });
+</script>
+
+<p>Description:</p>
+<textarea style="width: 100%; height: 40%" name="description"></textarea>
+
+<br />
+<br />
+
+<button type="submit">Create Invitation</button>
+
+</form>
+
+</div>
+</body>
+</html>
