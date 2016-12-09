@@ -3,6 +3,7 @@ from flask import render_template
 from flask import request
 from flask import url_for
 import uuid
+import copy
 
 import json
 import logging
@@ -322,12 +323,9 @@ def break_day(dayrange, interrupts):
     is a list of 2 arrow lists containing the windows of time that are
     available.
     """
-    result = dayrange
+    result = copy.deepcopy(dayrange)
     for i in interrupts:
-        app.logger.debug("Result starts as {}".format(result))
-        app.logger.debug("Interrupt is {}".format(i))
         scrutiny = result[-1]
-        app.logger.debug("Scrutiny is placed on {}".format(scrutiny))
 
         # Need arrows for good time deltas
         i_start = arrow.get(i['start'], "YYYY-MM-DDTHH:mm:ssZ")
@@ -335,19 +333,15 @@ def break_day(dayrange, interrupts):
         s_start = arrow.get(scrutiny['start'], "YYYY-MM-DDTHH:mm:ssZ")
         s_end = arrow.get(scrutiny['end'], "YYYY-MM-DDTHH:mm:ssZ")
 
-        print("i_start: {}".format(i_start))
-        print("i_end: {}".format(i_end))
-        print("i_start - i_start: {}".format(i_start - i_start))
-        print("i_start > i_end: {}".format(i_start > i_end))
-        print("i_end > i_start: {}".format(i_end > i_start))
-
+        # Arrows can be compared via inequalities - if one arrow is
+        # greater than another, then it starts later.
         if (i_start <= s_start and i_end >= s_end):
             # Interrupt is larger than interval itself
             del result[-1]
-        elif (i_start <= s_start and i_end < s_end):
+        elif (i_start <= s_start and i_end < s_end and i_end > s_start):
             # Interrupt starts before the interval, but ends in middle
             result[-1]['start'] = i['end']
-        elif (i_start > s_start and i_end >= s_end):
+        elif (i_start > s_start and i_start < s_end and i_end >= s_end):
             # Interrupt starts within interval, and carries through the rest
             result[-1]['end'] = i['start']
         elif (i_start > s_start and i_end < s_end):
@@ -358,6 +352,8 @@ def break_day(dayrange, interrupts):
                           'end': scrutiny['end']}]
             del result[-1]
             result.extend(new_parts)
+
+        print("Result so far: {}".format(result))
         
     return result
 
