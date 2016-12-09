@@ -293,20 +293,23 @@ def set_freebusy(service):
     busy = [ ]
     avbl = [ ]
     for times in day_ranges:
-      flask.flash(times)
+      # Acquire the busy times from Google Calendars using the passed service
       open_time = times[0].isoformat()
       close_time = times[1].isoformat()
       fbquery = { "timeMin": open_time,
                   "timeMax": close_time,
-                  "items": ids, 
-                  "timezone": '-0800' } # Replace w/ browser tz
+                  "timeZone": "-0800", # Replace with browswer tz
+                  "items": ids } 
       response = service.freebusy().query(body=fbquery).execute()
+
+      # Collect the returned busy times for each day
       busy_that_day = [ ]
       for b in response['calendars'].values():
         busy_that_day.extend(b['busy'])
       busy.extend(busy_that_day)
       dearrowed_times = [{'start': times[0].format("YYYY-MM-DDTHH:mm:ssZ"), 
                          'end': times[1].format("YYYY-MM-DDTHH:mm:ssZ")}]
+      flask.flash(busy_that_day)
       avbl.extend(break_day(dearrowed_times, busy_that_day))
 
     flask.session['busy'] = busy
@@ -320,17 +323,42 @@ def break_day(dayrange, interrupts):
     available.
     """
     result = dayrange
-    app.logger.debug("Dayrange was {}".format(dayrange))
     for i in interrupts:
+        app.logger.debug("Result starts as {}".format(result))
+        app.logger.debug("Interrupt is {}".format(i))
         scrutiny = result[-1]
-        i_start = i['start']
-        i_end = i['end']
-        app.logger.debug("Scrutiny is {}".format(scrutiny))
-        del result[-1]
-        if (scrutiny['start'] != i_start):
-            result.append({'start': scrutiny['start'], 'end': i_start})
-        if (scrutiny['end'] != i_end):
-            result.append({'start': i_end, 'end': scrutiny['end']})
+        app.logger.debug("Scrutiny is placed on {}".format(scrutiny))
+
+        # Need arrows for good time deltas
+        i_start = arrow.get(i['start'], "YYYY-MM-DDTHH:mm:ssZ")
+        i_end = arrow.get(i['end'], "YYYY-MM-DDTHH:mm:ssZ")
+        s_start = arrow.get(scrutiny['start'], "YYYY-MM-DDTHH:mm:ssZ")
+        s_end = arrow.get(scrutiny['end'], "YYYY-MM-DDTHH:mm:ssZ")
+
+        print("i_start: {}".format(i_start))
+        print("i_end: {}".format(i_end))
+        print("i_start - i_start: {}".format(i_start - i_start))
+        print("i_start > i_end: {}".format(i_start > i_end))
+        print("i_end > i_start: {}".format(i_end > i_start))
+
+        if (i_start <= s_start and i_end >= s_end):
+            # Interrupt is larger than interval itself
+            del result[-1]
+        elif (i_start <= s_start and i_end < s_end):
+            # Interrupt starts before the interval, but ends in middle
+            result[-1]['start'] = i['end']
+        elif (i_start > s_start and i_end >= s_end):
+            # Interrupt starts within interval, and carries through the rest
+            result[-1]['end'] = i['start']
+        elif (i_start > s_start and i_end < s_end):
+            # Interrupt splits interval in two
+            new_parts = [{'start': scrutiny['start'],
+                          'end': i['start']},
+                         {'start': i['end'],
+                          'end': scrutiny['end']}]
+            del result[-1]
+            result.extend(new_parts)
+        
     return result
 
 def daily_ranges():
@@ -351,8 +379,12 @@ def daily_ranges():
                   end_time.split(":")]
     result = [ ]
     for date in arrow.Arrow.range('day', begin_date, end_date):
-      day_start = date.replace(hours=+begin_offset[0], minutes=+begin_offset[1])
-      day_end = date.replace(hours=+end_offset[0], minutes=+end_offset[1])
+      day_start = date.replace(hours=+begin_offset[0],
+                               minutes=+begin_offset[1],
+                               tzinfo=tz.tzlocal())
+      day_end = date.replace(hours=+end_offset[0],
+                             minutes=+end_offset[1],
+                             tzinfo=tz.tzlocal())
       result.append([day_start, day_end])
     return result
   
